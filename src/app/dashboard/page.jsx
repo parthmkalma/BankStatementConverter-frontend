@@ -2,17 +2,20 @@
 
 import { useState } from "react"
 import Link from "next/link"
+import axios from "axios"
 import { FileText, Upload, Download, History, CreditCard, LogOut, User, CheckCircle, Loader2 } from "lucide-react"
 import ProtectedRoute from "@/components/ProtectedRoute"
 import { useAuth } from "@/hooks/useAuth"
 
 export default function Dashboard() {
     const { user, logout } = useAuth()
-    // console.log("user in dashboard", user)
     const [uploadedFile, setUploadedFile] = useState(null)
     const [isProcessing, setIsProcessing] = useState(false)
     const [isProcessed, setIsProcessed] = useState(false)
     const [dragActive, setDragActive] = useState(false)
+    const [uploadProgress, setUploadProgress] = useState(0)
+    const [error, setError] = useState(null)
+    const [processedData, setProcessedData] = useState([])
 
     const sampleData = [
         { date: "2024-01-15", description: "Online Purchase - Amazon", amount: -89.99, balance: 2456.78 },
@@ -39,22 +42,109 @@ export default function Dashboard() {
 
         if (e.dataTransfer.files && e.dataTransfer.files[0]) {
             setUploadedFile(e.dataTransfer.files[0])
+            setError(null)
+            setIsProcessed(false)
         }
     }
 
     const handleFileChange = (e) => {
         if (e.target.files && e.target.files[0]) {
             setUploadedFile(e.target.files[0])
+            setError(null)
+            setIsProcessed(false)
         }
     }
 
-    const handleProcess = () => {
+    const handleProcess = async () => {
+        if (!uploadedFile) {
+            setError("Please select a file first")
+            return
+        }
+
         setIsProcessing(true)
-        // Simulate processing
-        setTimeout(() => {
+        setError(null)
+        setUploadProgress(0)
+
+        try {
+            // Create FormData object
+            const formData = new FormData()
+            formData.append('file', uploadedFile)
+
+            // Add any additional data you might need
+            // formData.append('userId', user?.id || '')
+            // formData.append('uploadDate', new Date().toISOString())
+
+            // Make the axios request
+            const response = await axios.post('upload/parse', formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                    // Add authorization header if needed
+                    // 'Authorization': `Bearer ${token}`
+                },
+                onUploadProgress: (progressEvent) => {
+                    const percentCompleted = Math.round(
+                        (progressEvent.loaded * 100) / progressEvent.total
+                    )
+                    setUploadProgress(percentCompleted)
+                },
+                timeout: 30000, // 30 seconds timeout
+            })
+
+            // Handle successful response
+            if (response.data && response.data.success) {
+                setProcessedData(response.data.extractedData || sampleData)
+                setIsProcessed(true)
+            } else {
+                throw new Error(response.data.message || 'Processing failed')
+            }
+
+        } catch (err) {
+            console.error('Upload error:', err)
+
+            if (err.code === 'ECONNABORTED') {
+                setError('Upload timeout. Please try again with a smaller file.')
+            } else if (err.response?.status === 413) {
+                setError('File too large. Please upload a file smaller than 10MB.')
+            } else if (err.response?.status === 400) {
+                setError(err.response.data.message || 'Invalid file format. Please upload a PDF file.')
+            } else if (err.response?.status === 500) {
+                setError('Server error. Please try again later.')
+            } else {
+                setError(err.message || 'An error occurred while processing the file.')
+            }
+        } finally {
             setIsProcessing(false)
-            setIsProcessed(true)
-        }, 3000)
+            setUploadProgress(0)
+        }
+    }
+
+    const handleDownload = async () => {
+        try {
+            const response = await axios.get('/api/download-excel', {
+                params: {
+                    fileId: uploadedFile?.name, // or some unique identifier
+                },
+                responseType: 'blob',
+                headers: {
+                    // Add authorization header if needed
+                    // 'Authorization': `Bearer ${token}`
+                }
+            })
+
+            // Create download link
+            const url = window.URL.createObjectURL(new Blob([response.data]))
+            const link = document.createElement('a')
+            link.href = url
+            link.setAttribute('download', `processed_statement_${new Date().getTime()}.xlsx`)
+            document.body.appendChild(link)
+            link.click()
+            link.remove()
+            window.URL.revokeObjectURL(url)
+
+        } catch (err) {
+            console.error('Download error:', err)
+            setError('Failed to download file. Please try again.')
+        }
     }
 
     return (
@@ -122,6 +212,22 @@ export default function Dashboard() {
                         <div className="max-w-4xl mx-auto">
                             <h1 className="text-2xl font-bold text-gray-900 mb-8">Upload Bank Statement</h1>
 
+                            {/* Error Message */}
+                            {error && (
+                                <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+                                    <div className="flex">
+                                        <div className="flex-shrink-0">
+                                            <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                                            </svg>
+                                        </div>
+                                        <div className="ml-3">
+                                            <p className="text-sm text-red-800">{error}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
                             {/* Upload Section */}
                             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
                                 <h2 className="text-lg font-semibold text-gray-900 mb-4">Upload PDF Statement</h2>
@@ -158,7 +264,15 @@ export default function Dashboard() {
                                                     <p className="text-xs text-gray-500">{(uploadedFile.size / 1024 / 1024).toFixed(2)} MB</p>
                                                 </div>
                                             </div>
-                                            <button onClick={() => setUploadedFile(null)} className="text-gray-400 hover:text-gray-600">
+                                            <button
+                                                onClick={() => {
+                                                    setUploadedFile(null)
+                                                    setIsProcessed(false)
+                                                    setError(null)
+                                                }}
+                                                className="text-gray-400 hover:text-gray-600"
+                                                disabled={isProcessing}
+                                            >
                                                 ×
                                             </button>
                                         </div>
@@ -166,7 +280,8 @@ export default function Dashboard() {
                                         {!isProcessing && !isProcessed && (
                                             <button
                                                 onClick={handleProcess}
-                                                className="mt-4 w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors"
+                                                className="mt-4 w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                disabled={isProcessing}
                                             >
                                                 Process Statement
                                             </button>
@@ -183,8 +298,14 @@ export default function Dashboard() {
                                         <span className="ml-3 text-lg font-medium text-gray-900">Processing your statement...</span>
                                     </div>
                                     <div className="mt-4 bg-gray-200 rounded-full h-2">
-                                        <div className="bg-blue-600 h-2 rounded-full animate-pulse" style={{ width: "60%" }}></div>
+                                        <div
+                                            className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                                            style={{ width: `${uploadProgress}%` }}
+                                        ></div>
                                     </div>
+                                    <p className="mt-2 text-sm text-gray-600">
+                                        {uploadProgress}% complete
+                                    </p>
                                 </div>
                             )}
 
@@ -196,7 +317,10 @@ export default function Dashboard() {
                                             <CheckCircle className="h-6 w-6 text-green-600" />
                                             <span className="ml-3 text-lg font-medium text-gray-900">Processing Complete!</span>
                                         </div>
-                                        <button className="flex items-center bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors">
+                                        <button
+                                            onClick={handleDownload}
+                                            className="flex items-center bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors"
+                                        >
                                             <Download className="h-4 w-4 mr-2" />
                                             Download Excel
                                         </button>
@@ -227,7 +351,7 @@ export default function Dashboard() {
                                                 </tr>
                                             </thead>
                                             <tbody className="bg-white divide-y divide-gray-200">
-                                                {sampleData.map((row, index) => (
+                                                {(processedData.length > 0 ? processedData : sampleData).map((row, index) => (
                                                     <tr key={index} className="hover:bg-gray-50">
                                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.date}</td>
                                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{row.description}</td>
@@ -246,7 +370,7 @@ export default function Dashboard() {
                                         </table>
                                     </div>
                                     <p className="mt-4 text-sm text-gray-500">
-                                        Showing 5 of 127 transactions. Download the complete Excel file to view all data.
+                                        Showing {Math.min(5, processedData.length || sampleData.length)} of {processedData.length || 127} transactions. Download the complete Excel file to view all data.
                                     </p>
                                 </div>
                             )}

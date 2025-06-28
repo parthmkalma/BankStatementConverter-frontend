@@ -23,7 +23,7 @@ export function useAuth() {
                 const res = await axios.get("/auth/me")
                 setUser(res.data)
             } catch (err) {
-                console.error("Auth check failed:", err.response || err)
+                console.log("Auth check failed:", err.response || err)
                 setUser(null)
             } finally {
                 setIsLoading(false)
