@@ -17,7 +17,6 @@ export function useAuth() {
         axios.defaults.withCredentials = true
 
         const fetchUser = async () => {
-            console.log("Checking authentication status...")
             setIsLoading(true)
             try {
                 const res = await axios.get("/auth/me")

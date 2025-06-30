@@ -41,7 +41,7 @@ export default function LandingPage() {
                 >
                   How it Works
                 </Link>
-                {user ? (
+                {user?.name ? (
                   <ProfileDropdown />
                 ) : (
                   <Link
@@ -55,7 +55,7 @@ export default function LandingPage() {
             </div>
 
             <div className="md:hidden">
-              {user ? (
+              {user?.name ? (
                 <ProfileDropdown />
               ) : (
                 <Link
@@ -88,7 +88,7 @@ export default function LandingPage() {
 
                 <div className="mt-5 sm:mt-8 sm:flex sm:justify-center lg:justify-start">
                   <div className="rounded-md shadow">
-                    {user ? (
+                    {user?.name ? (
                       <Link
                         href="/dashboard"
                         className="w-full flex items-center justify-center px-8 py-3 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 md:py-4 md:text-lg md:px-10 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"

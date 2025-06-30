@@ -24,8 +24,6 @@ export function ProfileDropdown() {
     }, [])
 
     if (!user) return null
-    console.log("user in profile dropdown", user)
-    console.log("ProfileDropdown rendered with user:", user.profile_picture)
 
     return (
         <div className="relative" ref={dropdownRef}>

@@ -26,7 +26,7 @@ export default function LoginPage() {
         setAuthError(null);
         try {
             const response = await axios.get("/auth/me");
-            console.log("rfer", response.data);
+            // console.log("rfer", response.data);
             setUser(response.data);
             // setIsAuthenticated(true);
         } catch (error) {
