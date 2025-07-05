@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { FileText, Download, User, LogOut, Upload, History, CreditCard, CheckCircle, XCircle } from "lucide-react"
+import { FileText, User, LogOut, Upload, History, CreditCard, CheckCircle, XCircle } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth"
 import { useState, useEffect } from "react"
 import axios from "axios"
@@ -19,6 +19,7 @@ export default function HistoryPage() {
                 setLoading(true)
                 // Replace with your actual API endpoint
                 const response = await axios.get('/history/')
+                console.log('History data fetched:', response.data)
                 setHistoryData(response.data)
             } catch (err) {
                 const errorMessage = err.response?.data?.message || err.message || 'Failed to fetch history data'
@@ -38,7 +39,6 @@ export default function HistoryPage() {
         fileName: item.original_filename,
         uploadDate: item.uploaded_at,
         status: item.processed ? "Success" : "Failed",
-        downloadUrl: item.processed ? `#download/${item.file_id}` : null,
         fileId: item.file_id,
         format: item.format
     }))
@@ -48,32 +48,20 @@ export default function HistoryPage() {
     const successfulConversions = transformedData.filter(item => item.status === "Success").length
     const failedConversions = transformedData.filter(item => item.status === "Failed").length
 
-    const handleDownload = async (fileId, fileName) => {
-        // try {
-        //     // Replace with your actual download API endpoint
-        //     const response = await axios.get(`/api/download/${fileId}`, {
-        //         responseType: 'blob', // Important for file downloads
-        //         headers: {
-        //             // Add authorization header if needed
-        //             // 'Authorization': `Bearer ${token}`
-        //         }
-        //     })
-
-        //     // Create blob link to download
-        //     const blob = new Blob([response.data])
-        //     const url = window.URL.createObjectURL(blob)
-        //     const link = document.createElement('a')
-        //     link.href = url
-        //     link.download = fileName
-        //     document.body.appendChild(link)
-        //     link.click()
-        //     link.remove()
-        //     window.URL.revokeObjectURL(url)
-        // } catch (error) {
-        //     console.error('Download failed:', error)
-        //     // You might want to show a toast notification here
-        //     alert('Download failed. Please try again.')
-        // }
+    // Format date helper function
+    const formatDate = (dateString) => {
+        try {
+            const date = new Date(dateString)
+            return date.toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            })
+        } catch (error) {
+            return 'Invalid Date'
+        }
     }
 
     return (
@@ -217,7 +205,7 @@ export default function HistoryPage() {
                                                     Status
                                                 </th>
                                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                    Actions
+                                                    File ID
                                                 </th>
                                             </tr>
                                         </thead>
@@ -234,7 +222,7 @@ export default function HistoryPage() {
                                                         </div>
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                        {new Date(item.uploadDate).toLocaleDateString()}
+                                                        {formatDate(item.uploadDate)}
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap">
                                                         <span
@@ -249,18 +237,8 @@ export default function HistoryPage() {
                                                             {item.status}
                                                         </span>
                                                     </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                                        {item.downloadUrl ? (
-                                                            <button
-                                                                onClick={() => handleDownload(item.fileId, item.fileName)}
-                                                                className="flex items-center text-blue-600 hover:text-blue-900"
-                                                            >
-                                                                <Download className="h-4 w-4 mr-1" />
-                                                                Download
-                                                            </button>
-                                                        ) : (
-                                                            <span className="text-gray-400">Not available</span>
-                                                        )}
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-mono">
+                                                        {item.fileId}
                                                     </td>
                                                 </tr>
                                             ))}
